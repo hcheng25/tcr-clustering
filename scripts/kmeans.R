@@ -9,17 +9,6 @@ set.seed(42)
 # load all normalized data sets
 source('functions/load_norms.R')
 
-# use gap statistic to select number of clusters
-# gap_stat <- clusGap(x = freq[-1],
-#                     FUN = kmeans,
-#                     K.max = 20,
-#                     nstart = 25
-#                     )
-# print(gap_stat, method='Tibs2001SEmax')
-# plot(gap_stat)
-# note: trouble with convergence
-
-
 # use elbow method
 # initialize best_k_elbow to record best k as recorded by second derivative method below
 best_k_elbow <- integer(length(all_sets))
@@ -86,3 +75,49 @@ for (ii in seq_along(all_sets)){
   plot_save_path <- paste0('results/', names(all_sets)[ii], '_cluster_plots.png')
   ggsave(filename = plot_save_path, plot = p, width = 11, height = 5, dpi = 300) # save cluster plots
 }
+
+test_frame <- all_sets[[1]][-1]
+mean(test_frame[1,])
+
+sum(is.na(test_frame))
+for (ii in seq(nrow(test_frame))){
+  test_frame[ii,] <- (test_frame[ii,]- mean(t(test_frame[ii,])))/(sd(t(test_frame[ii,])))
+}
+
+
+
+# use gap statistic to select number of clusters
+gap_stat <- clusGap(x = test_frame,
+                    FUN = kmeans,
+                    K.max = 20,
+                    nstart = 25
+                    )
+print(gap_stat, method='Tibs2001SEmax')
+plot(gap_stat)
+# note: trouble with convergence
+
+km <- kmeans(test_frame, centers = 5, nstart = 25)
+set_with_clusters <- test_frame
+set_with_clusters$cluster <- paste0('Cluster_', km$cluster)
+X <- all_sets[[1]][[1]]
+set_with_clusters$X <- X
+
+# plot clusters to examine trends in each cluster
+freq_long <- set_with_clusters |>
+  pivot_longer(cols = starts_with('Frequency_'),
+               names_to = 'Timepoint',
+               values_to = 'Frequency') |>
+  mutate(
+    Timepoint = factor(gsub(pattern='Frequency_', replacement='', Timepoint), levels=1:9),
+    X = as.factor(X)
+  )
+
+p <- ggplot(freq_long, aes(x = Timepoint, y = Frequency, group = X, color = X)) +
+  geom_line(alpha = 0.3) +
+  facet_wrap(~ cluster) +
+  theme(legend.position = 'none') + 
+  labs(title = paste0('Cluster plots for ', names(all_sets)[ii]),
+       x = 'Timepoint',
+       y = 'Normalized Frequency'
+  )
+p
