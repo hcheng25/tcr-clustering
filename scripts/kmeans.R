@@ -48,10 +48,18 @@ for (ii in seq_along(all_sets)){
 
 names(best_k_elbow) <- names(all_sets)
 
+# based on visual examination of elbow plot, 3 clusters is better as elbow for freq+1 method data set
+best_k_elbow[2] <- 3
+
 for (ii in seq_along(all_sets)){
   km <- kmeans(all_sets[[ii]][-1], centers = best_k_elbow[[ii]], nstart = 25)
   set_with_clusters <- all_sets[[ii]]
-  set_with_clusters$cluster <- paste0('Cluster_', km$cluster)
+  cluster_label <- km$cluster
+  cluster_with_n <- vector(mode='character', length=length(cluster_label))
+  for (jj in seq_along(cluster_label)){
+    cluster_with_n[jj] <- paste0('Cluster_', cluster_label[jj], ' (n=', table(cluster_label)[[cluster_label[jj]]], ')')
+  }
+  set_with_clusters$cluster <- cluster_with_n
   
   # plot clusters to examine trends in each cluster
   freq_long <- set_with_clusters |>
@@ -76,20 +84,12 @@ for (ii in seq_along(all_sets)){
   ggsave(filename = plot_save_path, plot = p, width = 11, height = 5, dpi = 300) # save cluster plots
 }
 
-test_frame <- all_sets[[1]][-1]
-mean(test_frame[1,])
-
-sum(is.na(test_frame))
-for (ii in seq(nrow(test_frame))){
-  test_frame[ii,] <- (test_frame[ii,]- mean(t(test_frame[ii,])))/(sd(t(test_frame[ii,])))
-}
-
-
+test_frame <- all_sets[[1]]
 
 # use gap statistic to select number of clusters
 gap_stat <- clusGap(x = test_frame,
                     FUN = kmeans,
-                    K.max = 20,
+                    K.max = 10,
                     nstart = 25
                     )
 print(gap_stat, method='Tibs2001SEmax')
