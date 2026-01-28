@@ -1,5 +1,4 @@
 packages <- c('tidyverse', 'cluster', 'ggplot2', 'rlang')
-lapply(packages, install.packages)
 lapply(packages, library, character.only=TRUE)
 
 setwd(dirname(dirname(rstudioapi::getActiveDocumentContext()$path)))
@@ -30,7 +29,7 @@ for (ii in seq_along(all_sets)){
   # first local minimum of second diff i.e. where the rate of decrease first reaches a local minimum
   # compare each value of the second differential to the previous value
   elbow_pt <- which(second_diff[-1] > second_diff[-length(second_diff)])[1] + 1
-  best_k_elbow[ii] <- elbow_pt
+  # best_k_elbow[ii] <- elbow_pt # commented this line out; select elbow manually
   
   p <- ggplot(wss_plot, aes(x=x, y=y)) +
     geom_line() +
@@ -48,8 +47,8 @@ for (ii in seq_along(all_sets)){
 
 names(best_k_elbow) <- names(all_sets)
 
-# based on visual examination of elbow plot, 3 clusters is better as elbow for freq+1 method data set
-best_k_elbow[2] <- 3
+# based on visual examination of elbow plots
+best_k_elbow <- c(3, 3, 3)
 
 for (ii in seq_along(all_sets)){
   km <- kmeans(all_sets[[ii]][-1], centers = best_k_elbow[[ii]], nstart = 25)
@@ -77,7 +76,7 @@ for (ii in seq_along(all_sets)){
     theme(legend.position = 'none') + 
     labs(title = paste0('Cluster plots for ', names(all_sets)[ii]),
          x = 'Timepoint',
-         y = 'Normalized Frequency'
+         y = 'Normalized Frequency (z-score)'
     )
   
   plot_save_path <- paste0('results/', names(all_sets)[ii], '_cluster_plots.png')
@@ -118,6 +117,6 @@ p <- ggplot(freq_long, aes(x = Timepoint, y = Frequency, group = X, color = X)) 
   theme(legend.position = 'none') + 
   labs(title = paste0('Cluster plots for ', names(all_sets)[ii]),
        x = 'Timepoint',
-       y = 'Normalized Frequency'
+       y = 'Normalized Frequency (z-score)'
   )
 p
