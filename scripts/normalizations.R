@@ -18,12 +18,12 @@ row_to_z <- function(df){
 
 # ----- original counts for processing -----
 counts <- dat|>
-  select(X, starts_with('Count_'))
+  select(starts_with('Count_'))
 
 # ----- frequencies from original data -----
 # log10(count/totals) except where count is 0
 freq <- dat |>
-  select(X, starts_with('Frequncy_')) |>
+  select(starts_with('Frequncy_')) |>
   # replace 0 with -7; equivalent to count relative frequency being 10^-7
   mutate(
     across(
@@ -42,8 +42,8 @@ freq_plus_one_method <- counts |>
          row_total = rowSums(across(starts_with('Count_'))), # row sums
          across(starts_with('Count_'), \(x) log10(x/row_total)) # log of proportion of row total
   ) |>
-  select(-row_total)
-freq_plus_one_method <- cbind(freq_plus_one_method[1], row_to_z(freq_plus_one_method[-1]))
+  select(-row_total) |>
+  row_to_z()
 names(freq_plus_one_method) <- gsub(pattern = 'Count', replacement = 'Frequency', x = names(freq_plus_one_method))
 
 saveRDS(freq_plus_one_method, 'rds/freq_plus_one_method.RDS')
@@ -64,6 +64,5 @@ freq_log_foldchange <- (counts_current/counts_prev) |> # divide for fold change 
   mutate(across(starts_with('Count_'), \(x) log(x))) |>
   rename_with(\(x) gsub(pattern='Count', 'Frequency', x=x), starts_with('Count'))
 #  row_to_z() # FOR FOLD CHANGE: dont use z score
-freq_log_foldchange <- cbind(counts['X'], freq_log_foldchange)
 
 saveRDS(freq_log_foldchange, 'rds/freq_log_foldchange.RDS')
