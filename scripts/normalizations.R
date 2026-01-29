@@ -8,6 +8,9 @@ if(!dir.exists('rds')){
   dir.create('rds')
 }
 
+# ----- save TCR X column for later use -----
+saveRDS(dat$X, 'rds/X.RDS')
+
 # ----- convert frequencies into z-score by row -----
 row_to_z <- function(df){
   col_names <- names(df)
