@@ -12,13 +12,14 @@ set.seed(42)
 source('functions/load_norms.R')
 
 # ----- using gap statistic to select number of clusters -----
+# ----- using gap statistic to select number of clusters -----
 for (ii in seq_along(all_sets)){
   test_frame <- all_sets[[ii]]
 
   # use gap statistic to select number of clusters
   gap_stat <- clusGap(x = test_frame,
                       FUN = kmeans,
-                      K.max = 30,
+                      K.max = 35,
                       nstart = 25,
                       B = 50 # adjust to lower number if just testing code
                       )
@@ -40,6 +41,7 @@ for (ii in seq_along(all_sets)){
                                                     ')')
   }
   set_with_clusters$X <- as.factor(X)
+  set_with_clusters$X <- as.factor(X)
   
   # plot clusters to examine trends in each cluster
   freq_long <- set_with_clusters |>
@@ -48,9 +50,11 @@ for (ii in seq_along(all_sets)){
                  values_to = 'Frequency') |>
     mutate(
       Timepoint = factor(gsub(pattern='Frequency_', replacement='', Timepoint), levels=1:9)
+      Timepoint = factor(gsub(pattern='Frequency_', replacement='', Timepoint), levels=1:9)
     )
   
   if(ii==3){ # for freq_log_foldchange
+    y_lab <- 'Log Fold-change from Previous'
     y_lab <- 'Log Fold-change from Previous'
   }else if(ii %in% c(1,2)){ # freq, freq+1method
     y_lab <- 'Normalized Frequency (z-score)'
@@ -66,6 +70,7 @@ for (ii in seq_along(all_sets)){
          x = 'Timepoint',
          y = y_lab
     )
+  p
   p
   
   plot_save_path <- paste0('results/', names(all_sets)[ii], '_cluster_plots.png')
