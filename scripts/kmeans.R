@@ -19,7 +19,7 @@ best_k_elbow <- integer(length(all_sets))
 for (ii in seq_along(all_sets)){
   wss <- 1:10 # initialize within-cluster sum of squares
   for (k in 1:10){
-    km <- kmeans(all_sets[[ii]][-1], centers = k, nstart = 25) # [-1] to exclude TCR id
+    km <- kmeans(all_sets[[ii]], centers = k, nstart = 25)
     wss[k] <- km$tot.withinss
   }
   
@@ -100,11 +100,11 @@ for (ii in seq_along(all_sets)){
 test_frame <- all_sets[[1]]
 
 # use gap statistic to select number of clusters
-gap_stat <- clusGap(x = test_frame[-1], # exclude TCR clone id
+gap_stat <- clusGap(x = test_frame,
                     FUN = kmeans,
                     K.max = 20,
                     nstart = 25,
-                    B = 20
+                    B = 5
                     )
 print(gap_stat, method='Tibs2001SEmax')
 optimal_k <- maxSE(gap_stat$Tab[, "gap"],
