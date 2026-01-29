@@ -29,8 +29,8 @@ freq <- dat |>
     across(
       starts_with('Frequncy_'), \(x) ifelse(x==0, -7, x)
     )
-  )
-freq <- cbind(freq[1], row_to_z(freq[-1]))
+  ) |>
+  row_to_z()
 names(freq) <- gsub(pattern = 'Frequncy', replacement = 'Frequency', x = names(freq))
 
 saveRDS(freq, 'rds/freq_neg7.RDS')
