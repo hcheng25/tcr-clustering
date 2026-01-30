@@ -2,9 +2,6 @@ packages <- c('tidyverse', 'cluster', 'ggplot2', 'rlang')
 lapply(packages, library, character.only=TRUE)
 
 setwd(dirname(dirname(rstudioapi::getActiveDocumentContext()$path)))
-if(!dir.exists('results')){
-  dir.create('results')
-}
 
 set.seed(42)
 

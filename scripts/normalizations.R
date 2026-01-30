@@ -4,9 +4,6 @@ lapply(packages, library, character.only=TRUE)
 setwd(dirname(dirname(rstudioapi::getActiveDocumentContext()$path)))
 
 dat <- read.csv('data/Europe_covid_data_cell_meta_data_w_stat_TRB-Pt-5.csv')
-if(!dir.exists('rds')){
-  dir.create('rds')
-}
 
 # ----- save TCR X column for later use -----
 saveRDS(dat$X, 'rds/X.RDS')
