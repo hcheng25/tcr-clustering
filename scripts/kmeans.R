@@ -12,7 +12,6 @@ set.seed(42)
 source('functions/load_norms.R')
 
 # ----- using gap statistic to select number of clusters -----
-# ----- using gap statistic to select number of clusters -----
 for (ii in seq_along(all_sets)){
   test_frame <- all_sets[[ii]]
 
@@ -41,20 +40,17 @@ for (ii in seq_along(all_sets)){
                                                     ')')
   }
   set_with_clusters$X <- as.factor(X)
-  set_with_clusters$X <- as.factor(X)
   
-  # plot clusters to examine trends in each cluster
+  # plot clusters to examine z-score trends in each cluster
   freq_long <- set_with_clusters |>
     pivot_longer(cols = starts_with('Frequency_'),
                  names_to = 'Timepoint',
                  values_to = 'Frequency') |>
     mutate(
       Timepoint = factor(gsub(pattern='Frequency_', replacement='', Timepoint), levels=1:9)
-      Timepoint = factor(gsub(pattern='Frequency_', replacement='', Timepoint), levels=1:9)
     )
   
   if(ii==3){ # for freq_log_foldchange
-    y_lab <- 'Log Fold-change from Previous'
     y_lab <- 'Log Fold-change from Previous'
   }else if(ii %in% c(1,2)){ # freq, freq+1method
     y_lab <- 'Normalized Frequency (z-score)'
@@ -66,13 +62,47 @@ for (ii in seq_along(all_sets)){
     geom_line(alpha = 0.3) +
     facet_wrap(~ cluster) +
     theme(legend.position = 'none') + 
-    labs(title = paste0('Cluster plots for ', names(all_sets)[ii]),
+    labs(title = paste0('Cluster plots for normalized frequency (', names(all_sets)[ii], ')'),
          x = 'Timepoint',
          y = y_lab
     )
   p
-  p
   
   plot_save_path <- paste0('results/', names(all_sets)[ii], '_cluster_plots.png')
-  ggsave(filename = plot_save_path, plot = p, width = 11, height = 5, dpi = 300) # save cluster plots
+  ggsave(filename = plot_save_path, plot = p, units='px', width=3000, height=5000) # save cluster plots
+  
+  # assign clusters to raw counts for plotting counts
+  counts$cluster <- as.factor(km$cluster)
+  for (jj in seq_along(levels(counts$cluster))){
+    levels(counts$cluster)[jj] <- paste0('Cluster_',
+                                         levels(counts$cluster)[jj],
+                                         ' (n=',
+                                         table(counts$cluster)[[jj]],
+                                         ')')
+  }
+  counts$X <- as.factor(X)
+  
+  # plot clusters to examine raw count trends in each cluster
+  freq_long <- counts |>
+    pivot_longer(cols = starts_with('Count_'),
+                 names_to = 'Timepoint',
+                 values_to = 'Count') |>
+    mutate(
+      Timepoint = factor(gsub(pattern='Count_', replacement='', Timepoint), levels=1:9)
+    )
+  
+  p <- ggplot(freq_long, aes(x = Timepoint, y = Count, group = X, color = X)) +
+    geom_line(alpha = 0.3) +
+    facet_wrap(~ cluster,
+               ncol = 3,
+               scales = 'free_y') +
+    theme(legend.position = 'none') + 
+    labs(title = paste0('Cluster plots for raw counts of ', names(all_sets)[ii]),
+         x = 'Timepoint',
+         y = 'Raw count'
+    )
+  p
+  
+  plot_save_path <- paste0('results/', names(all_sets)[ii], '_rawcount_cluster_plots.png')
+  ggsave(filename = plot_save_path, plot = p, units='px', width=3000, height=5000) # save cluster plots
 }

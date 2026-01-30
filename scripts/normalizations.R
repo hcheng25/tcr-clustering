@@ -19,9 +19,11 @@ row_to_z <- function(df){
   return(df)
 }
 
-# ----- original counts for processing -----
+# ----- original counts for processing and later plotting -----
 counts <- dat|>
   select(starts_with('Count_'))
+
+saveRDS(counts, 'rds/counts.RDS')
 
 # ----- frequencies from original data -----
 # log10(count/totals) except where count is 0
