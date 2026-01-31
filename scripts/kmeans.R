@@ -9,15 +9,16 @@ set.seed(42)
 source('functions/load_norms.R')
 
 # ----- using gap statistic to select number of clusters -----
-for (ii in seq_along(all_sets)){
-  test_frame <- all_sets[[ii]]
+# counts for plotting the non normalized plots based on cluster assignments
+gap_stat_kmeans <- function(df, counts, B=50){
+  test_frame <- df
 
   # use gap statistic to select number of clusters
   gap_stat <- clusGap(x = test_frame,
                       FUN = kmeans,
                       K.max = 35,
                       nstart = 25,
-                      B = 50 # adjust to lower number if just testing code
+                      B = B
                       )
   # print(gap_stat, method='Tibs2001SEmax')
   optimal_k <- maxSE(gap_stat$Tab[, "gap"],
@@ -102,4 +103,8 @@ for (ii in seq_along(all_sets)){
   
   plot_save_path <- paste0('results/', names(all_sets)[ii], '_rawcount_cluster_plots.png')
   ggsave(filename = plot_save_path, plot = p, units='px', width=3000, height=5000) # save cluster plots
+}
+
+for (ii in seq_along(all_sets)){
+  gap_stat_kmeans(all_sets[[ii]], counts, B=50) # adjust to lower number if just testing code 
 }
