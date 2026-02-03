@@ -20,7 +20,9 @@ row_to_z <- function(df){
 counts <- dat|>
   select(starts_with('Count_'))
 
-saveRDS(counts, 'rds/counts.RDS')
+log10counts <- log10(counts) 
+
+saveRDS(log10counts, 'rds/log10counts.RDS')
 
 # ----- frequencies from original data -----
 # log10(count/totals) except where count is 0

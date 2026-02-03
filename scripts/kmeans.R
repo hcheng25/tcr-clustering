@@ -3,6 +3,16 @@ lapply(packages, library, character.only=TRUE)
 
 setwd(dirname(dirname(rstudioapi::getActiveDocumentContext()$path)))
 
+if(!dir.exists('results/kmeans')){
+  dir.create('results/kmeans')
+}
+if(!dir.exists('results/kmeans/freq_plots')){
+  dir.create('results/kmeans/freq_plots')
+}
+if(!dir.exists('results/kmeans/log10_plots')){
+  dir.create('results/kmeans/log10_plots')
+}
+
 set.seed(42)
 
 # load all normalized data sets
@@ -10,7 +20,7 @@ source('functions/load_norms.R')
 
 # ----- using gap statistic to select number of clusters -----
 # counts for plotting the non normalized plots based on cluster assignments
-gap_stat_kmeans <- function(df, counts, B=50){
+gap_stat_kmeans <- function(df, df_name, y_lab, log10counts, B=50){
   test_frame <- df
 
   # use gap statistic to select number of clusters
@@ -48,40 +58,32 @@ gap_stat_kmeans <- function(df, counts, B=50){
       Timepoint = factor(gsub(pattern='Frequency_', replacement='', Timepoint), levels=1:9)
     )
   
-  if(ii==3){ # for freq_log_foldchange
-    y_lab <- 'Log Fold-change from Previous'
-  }else if(ii %in% c(1,2)){ # freq, freq+1method
-    y_lab <- 'Normalized Frequency (z-score)'
-  }else{
-    y_lab <- '(Unspecified y label)'
-  }
-  
   p <- ggplot(freq_long, aes(x = Timepoint, y = Frequency, group = X, color = X)) +
     geom_line(alpha = 0.3) +
     facet_wrap(~ cluster) +
     theme(legend.position = 'none') + 
-    labs(title = paste0('Cluster plots for normalized frequency (', names(all_sets)[ii], ')'),
+    labs(title = paste0('Cluster plots for normalized frequency (', df_name, ')'),
          x = 'Timepoint',
          y = y_lab
     )
   p
   
-  plot_save_path <- paste0('results/', names(all_sets)[ii], '_cluster_plots.png')
+  plot_save_path <- paste0('results/kmeans/freq_plots/', df_name, '_cluster_plots.png')
   ggsave(filename = plot_save_path, plot = p, units='px', width=3000, height=5000) # save cluster plots
   
   # assign clusters to raw counts for plotting counts
-  counts$cluster <- as.factor(km$cluster)
-  for (jj in seq_along(levels(counts$cluster))){
-    levels(counts$cluster)[jj] <- paste0('Cluster_',
-                                         levels(counts$cluster)[jj],
+  log10counts$cluster <- as.factor(km$cluster)
+  for (jj in seq_along(levels(log10counts$cluster))){
+    levels(log10counts$cluster)[jj] <- paste0('Cluster_',
+                                         levels(log10counts$cluster)[jj],
                                          ' (n=',
-                                         table(counts$cluster)[[jj]],
+                                         table(log10counts$cluster)[[jj]],
                                          ')')
   }
-  counts$X <- as.factor(X)
+  log10counts$X <- as.factor(X)
   
   # plot clusters to examine raw count trends in each cluster
-  freq_long <- counts |>
+  freq_long <- log10counts |>
     pivot_longer(cols = starts_with('Count_'),
                  names_to = 'Timepoint',
                  values_to = 'Count') |>
@@ -95,16 +97,29 @@ gap_stat_kmeans <- function(df, counts, B=50){
                ncol = 3,
                scales = 'free_y') +
     theme(legend.position = 'none') + 
-    labs(title = paste0('Cluster plots for raw counts of ', names(all_sets)[ii]),
+    labs(title = paste0('Cluster plots for log10(counts) of ', df_name),
          x = 'Timepoint',
-         y = 'Raw count'
+         y = 'Log10 of Raw Count'
     )
   p
   
-  plot_save_path <- paste0('results/', names(all_sets)[ii], '_rawcount_cluster_plots.png')
+  plot_save_path <- paste0('results/kmeans/log10_plots/', df_name, '_log10_cluster_plots.png')
   ggsave(filename = plot_save_path, plot = p, units='px', width=3000, height=5000) # save cluster plots
 }
 
 for (ii in seq_along(all_sets)){
-  gap_stat_kmeans(all_sets[[ii]], counts, B=50) # adjust to lower number if just testing code 
+  
+  if(ii==3){ # for freq_log_foldchange
+    y_lab <- 'Log Fold-change from Previous'
+  }else if(ii %in% c(1,2)){ # freq, freq+1method
+    y_lab <- 'Normalized Frequency (z-score)'
+  }else{
+    y_lab <- '(Unspecified y label)'
+  }
+  
+  gap_stat_kmeans(df = all_sets[[ii]],
+                  df_name = names(all_sets[ii]),
+                  y_lab = y_lab,
+                  log10counts = log10counts,
+                  B = 50) # adjust to lower number if just testing code 
 }
