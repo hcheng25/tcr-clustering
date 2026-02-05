@@ -1,12 +1,12 @@
-packages <- c('tidyverse', 'cluster', 'ggplot2', 'rlang')
+packages <- c('tidyverse', 'cluster', 'ggplot2', 'rlang', 'dynamicTreeCut')
 lapply(packages, library, character.only=TRUE)
 
 setwd(dirname(dirname(rstudioapi::getActiveDocumentContext()$path)))
 
-if(!dir.exists('results/kmeans')){
-  dir.create('results/kmeans')
-  dir.create('results/kmeans/freq_plots')
-  dir.create('results/kmeans/log10_plots')
+if(!dir.exists('results/hierarchical')){
+  dir.create('results/hierarchical')
+  dir.create('results/hierarchical/freq_plots')
+  dir.create('results/hierarchical/log10_plots')
 }
 
 set.seed(42)
@@ -14,28 +14,23 @@ set.seed(42)
 # load all normalized data sets
 source('functions/load_norms.R')
 
-# ----- using gap statistic to select number of clusters -----
-# counts for plotting the non normalized plots based on cluster assignments
-gap_stat_kmeans <- function(df, df_name, y_lab, log10counts, B=50){
-  test_frame <- df
-
-  # use gap statistic to select number of clusters
-  gap_stat <- clusGap(x = test_frame,
-                      FUN = kmeans,
-                      K.max = 35,
-                      nstart = 25,
-                      B = B
-                      )
-  # print(gap_stat, method='Tibs2001SEmax')
-  optimal_k <- maxSE(gap_stat$Tab[, "gap"],
-                     gap_stat$Tab[, "SE.sim"],
-                     method = "firstSEmax")
-  # plot(gap_stat)
-  # note: trouble with convergence
+# ----- hierarchical clustering -----
+hier_fit <- function(df, df_name, y_lab, log10counts){
+  # use pearson distance
+  dist_matrix <- as.dist(1-cor(t(df), method='pearson')) # calculate distance in rows using t()
   
-  km <- kmeans(test_frame, centers = optimal_k, nstart = 25)
-  set_with_clusters <- test_frame
-  set_with_clusters$cluster <- as.factor(km$cluster)
+  # linkage method - ward.D2 as default
+  hier_clust <- hclust(dist_matrix, method='ward.D2')
+  
+  # use dynamicTreeCut to prune tree
+  clusters <- cutreeDynamic(dendro = hier_clust,
+                            distM = as.matrix(dist_matrix),
+                            deepSplit = 2, # can tune
+                            minClusterSize=5)
+  
+  # put cluster data into original data frame
+  set_with_clusters <- df
+  set_with_clusters$cluster <- as.factor(clusters)
   for (jj in seq_along(levels(set_with_clusters$cluster))){
     levels(set_with_clusters$cluster)[jj] <- paste0('Cluster_',
                                                     levels(set_with_clusters$cluster)[jj],
@@ -64,17 +59,17 @@ gap_stat_kmeans <- function(df, df_name, y_lab, log10counts, B=50){
     )
   p
   
-  plot_save_path <- paste0('results/kmeans/freq_plots/', df_name, '_cluster_plots.png')
+  plot_save_path <- paste0('results/hierarchical/freq_plots/', df_name, '_cluster_plots.png')
   ggsave(filename = plot_save_path, plot = p, units='px', width=3000, height=5000) # save cluster plots
   
-  # assign clusters to raw counts for plotting counts
-  log10counts$cluster <- as.factor(km$cluster)
+  # assign clusters for plotting log10counts
+  log10counts$cluster <- as.factor(clusters)
   for (jj in seq_along(levels(log10counts$cluster))){
     levels(log10counts$cluster)[jj] <- paste0('Cluster_',
-                                         levels(log10counts$cluster)[jj],
-                                         ' (n=',
-                                         table(log10counts$cluster)[[jj]],
-                                         ')')
+                                              levels(log10counts$cluster)[jj],
+                                              ' (n=',
+                                              table(log10counts$cluster)[[jj]],
+                                              ')')
   }
   log10counts$X <- as.factor(X)
   
@@ -99,7 +94,7 @@ gap_stat_kmeans <- function(df, df_name, y_lab, log10counts, B=50){
     )
   p
   
-  plot_save_path <- paste0('results/kmeans/log10_plots/', df_name, '_log10_cluster_plots.png')
+  plot_save_path <- paste0('results/hierarchical/log10_plots/', df_name, '_log10_cluster_plots.png')
   ggsave(filename = plot_save_path, plot = p, units='px', width=3000, height=5000) # save cluster plots
 }
 
@@ -113,9 +108,14 @@ for (ii in seq_along(all_sets)){
     y_lab <- '(Unspecified y label)'
   }
   
-  gap_stat_kmeans(df = all_sets[[ii]],
-                  df_name = names(all_sets[ii]),
-                  y_lab = y_lab,
-                  log10counts = log10counts,
-                  B = 50) # adjust to lower number if just testing code 
+  hier_fit(df = all_sets[[ii]],
+           df_name = names(all_sets[ii]),
+           y_lab = y_lab,
+           log10counts = log10counts)
 }
+
+# ----- test line -----
+#hier_fit(df = all_sets[[1]],
+#         df_name = names(all_sets[1]),
+#         y_lab = 'Normalized Frequency (z-score)',
+#         log10counts = log10counts)
