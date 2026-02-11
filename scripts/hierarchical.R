@@ -6,7 +6,7 @@ setwd(dirname(dirname(rstudioapi::getActiveDocumentContext()$path)))
 if(!dir.exists('results/hierarchical')){
   dir.create('results/hierarchical')
   dir.create('results/hierarchical/freq_plots')
-  dir.create('results/hierarchical/log10_plots')
+  dir.create('results/hierarchical/check_plots')
 }
 
 set.seed(42)
@@ -14,8 +14,10 @@ set.seed(42)
 # load all normalized data sets
 source('functions/load_norms.R')
 
+check_plot <- all_sets$freq # for visually checking clusters
+
 # ----- hierarchical clustering -----
-hier_fit <- function(df, df_name, y_lab, log10counts){
+hier_fit <- function(df, df_name, y_lab){
   # use pearson distance
   dist_matrix <- as.dist(1-cor(t(df), method='pearson')) # calculate distance in rows using t()
   
@@ -62,27 +64,27 @@ hier_fit <- function(df, df_name, y_lab, log10counts){
   plot_save_path <- paste0('results/hierarchical/freq_plots/', df_name, '_cluster_plots.png')
   ggsave(filename = plot_save_path, plot = p, units='px', width=3000, height=5000) # save cluster plots
   
-  # assign clusters for plotting log10counts
-  log10counts$cluster <- as.factor(clusters)
-  for (jj in seq_along(levels(log10counts$cluster))){
-    levels(log10counts$cluster)[jj] <- paste0('Cluster_',
-                                              levels(log10counts$cluster)[jj],
+  # assign clusters for plotting check_plot
+  check_plot$cluster <- as.factor(clusters)
+  for (jj in seq_along(levels(check_plot$cluster))){
+    levels(check_plot$cluster)[jj] <- paste0('Cluster_',
+                                              levels(check_plot$cluster)[jj],
                                               ' (n=',
-                                              table(log10counts$cluster)[[jj]],
+                                              table(check_plot$cluster)[[jj]],
                                               ')')
   }
-  log10counts$X <- as.factor(X)
+  check_plot$X <- as.factor(X)
   
-  # plot clusters to examine raw count trends in each cluster
-  freq_long <- log10counts |>
-    pivot_longer(cols = starts_with('Count_'),
+  # plot clusters to examine frequency trends in each cluster
+  freq_long <- check_plot |>
+    pivot_longer(cols = starts_with('Frequency_'),
                  names_to = 'Timepoint',
-                 values_to = 'Count') |>
+                 values_to = 'Frequency') |>
     mutate(
-      Timepoint = factor(gsub(pattern='Count_', replacement='', Timepoint), levels=1:9)
+      Timepoint = factor(gsub(pattern='Frequency_', replacement='', Timepoint), levels=1:9)
     )
   
-  p <- ggplot(freq_long, aes(x = Timepoint, y = Count, group = X, color = X)) +
+  p <- ggplot(freq_long, aes(x = Timepoint, y = Frequency, group = X, color = X)) +
     geom_line(alpha = 0.3) +
     facet_wrap(~ cluster,
                ncol = 3,
@@ -90,32 +92,31 @@ hier_fit <- function(df, df_name, y_lab, log10counts){
     theme(legend.position = 'none') + 
     labs(title = paste0('Cluster plots for log10(counts) of ', df_name),
          x = 'Timepoint',
-         y = 'Log10 of Raw Count'
+         y = 'Normalized Frequency'
     )
   p
   
-  plot_save_path <- paste0('results/hierarchical/log10_plots/', df_name, '_log10_cluster_plots.png')
+  plot_save_path <- paste0('results/hierarchical/check_plots/', df_name, '_check_plots.png')
   ggsave(filename = plot_save_path, plot = p, units='px', width=3000, height=5000) # save cluster plots
 }
 
-for (ii in seq_along(all_sets)){
-  
-  if(ii==3){ # for freq_log_foldchange
-    y_lab <- 'Log Fold-change from Previous'
-  }else if(ii %in% c(1,2)){ # freq, freq+1method
-    y_lab <- 'Normalized Frequency (z-score)'
-  }else{
-    y_lab <- '(Unspecified y label)'
-  }
-  
-  hier_fit(df = all_sets[[ii]],
-           df_name = names(all_sets[ii]),
-           y_lab = y_lab,
-           log10counts = log10counts)
-}
+# set up y labels to sequence through
+y_lab <- c('Normalized Frequency',
+           'Normalized Frequency (z-score)',
+           'Normalized Pseudocount Frequency',
+           'Normalized Pseudocount Frequency (z-score)',
+           'Log Fold-change from Previous Timepoint')
+
 
 # ----- test line -----
-#hier_fit(df = all_sets[[1]],
-#         df_name = names(all_sets[1]),
-#         y_lab = 'Normalized Frequency (z-score)',
-#         log10counts = log10counts)
+hier_fit(df = all_sets[[1]],
+         df_name = names(all_sets[1]),
+         y_lab = y_lab[1])
+
+# ----- actual run -----
+for (ii in seq_along(all_sets)){
+  hier_fit(df = all_sets[[ii]],
+           df_name = names(all_sets[ii]),
+           y_lab = y_lab[ii])
+}
+
