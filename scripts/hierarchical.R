@@ -1,0 +1,114 @@
+packages <- c('tidyverse', 'cluster', 'ggplot2', 'rlang', 'dynamicTreeCut')
+lapply(packages, library, character.only=TRUE)
+
+setwd(dirname(dirname(rstudioapi::getActiveDocumentContext()$path)))
+
+if(!dir.exists('results/hierarchical')){
+  dir.create('results/hierarchical')
+  dir.create('results/hierarchical/freq_plots')
+  dir.create('results/hierarchical/check_plots')
+}
+
+set.seed(42)
+
+# load all normalized data sets
+source('functions/load_norms.R')
+
+# ----- hierarchical clustering -----
+hier_fit <- function(df, df_name, y_lab){
+  # use pearson distance
+  dist_matrix <- as.dist(1-cor(t(df), method='pearson')) # calculate distance in rows using t()
+  
+  # linkage method - ward.D2 as default
+  hier_clust <- hclust(dist_matrix, method='ward.D2')
+  
+  # use dynamicTreeCut to prune tree
+  clusters <- cutreeDynamic(dendro = hier_clust,
+                            distM = as.matrix(dist_matrix),
+                            deepSplit = 2, # can tune
+                            minClusterSize=5)
+  
+  # put cluster data into original data frame
+  set_with_clusters <- df
+  set_with_clusters$cluster <- as.factor(clusters)
+  for (jj in seq_along(levels(set_with_clusters$cluster))){
+    levels(set_with_clusters$cluster)[jj] <- paste0('Cluster_',
+                                                    levels(set_with_clusters$cluster)[jj],
+                                                    ' (n=',
+                                                    table(set_with_clusters$cluster)[[jj]],
+                                                    ')')
+  }
+  set_with_clusters$X <- as.factor(X)
+  
+  # plot clusters to examine z-score trends in each cluster
+  freq_long <- set_with_clusters |>
+    pivot_longer(cols = starts_with('Frequency_'),
+                 names_to = 'Timepoint',
+                 values_to = 'Frequency') |>
+    mutate(
+      Timepoint = factor(gsub(pattern='Frequency_', replacement='', Timepoint), levels=1:9)
+    )
+  
+  p <- ggplot(freq_long, aes(x = Timepoint, y = Frequency, group = X, color = X)) +
+    geom_line(alpha = 0.3) +
+    facet_wrap(~ cluster,
+               ncol = 3,
+               scales = 'free_y') + 
+    labs(title = paste0('Hierarchical Cluster Plots (', df_name, ')'),
+         x = 'Timepoint',
+         y = y_lab
+    ) +
+    theme(legend.position = 'none')
+  p
+  
+  plot_save_path <- paste0('results/hierarchical/freq_plots/', df_name, '_cluster_plots.png')
+  ggsave(filename = plot_save_path, plot = p, units='in', width=4.5, height=5, dpi = 300) # save cluster plots
+  
+  # assign clusters for plotting check_plot
+  check_plot$cluster <- as.factor(clusters)
+  for (jj in seq_along(levels(check_plot$cluster))){
+    levels(check_plot$cluster)[jj] <- paste0('Cluster_',
+                                              levels(check_plot$cluster)[jj],
+                                              ' (n=',
+                                              table(check_plot$cluster)[[jj]],
+                                              ')')
+  }
+  check_plot$X <- as.factor(X)
+  
+  # plot clusters to examine frequency trends in each cluster
+  freq_long <- check_plot |>
+    pivot_longer(cols = starts_with('Frequency_'),
+                 names_to = 'Timepoint',
+                 values_to = 'Frequency') |>
+    mutate(
+      Timepoint = factor(gsub(pattern='Frequency_', replacement='', Timepoint), levels=1:9)
+    )
+  
+  p <- ggplot(freq_long, aes(x = Timepoint, y = Frequency, group = X, color = X)) +
+    geom_line(alpha = 0.3) +
+    facet_wrap(~ cluster,
+               ncol = 3,
+               scales = 'free_y') + 
+    labs(title = paste0('Hierarchical Frequency Plots (', df_name, ')'),
+         x = 'Timepoint',
+         y = 'Normalized Frequency'
+    ) +
+    theme(legend.position = 'none')
+  p
+  
+  plot_save_path <- paste0('results/hierarchical/check_plots/', df_name, '_check_plots.png')
+  ggsave(filename = plot_save_path, plot = p, units='in', width=4.5, height=5, dpi = 300) # save cluster plots
+}
+
+# ----- test line -----
+hier_fit(df = all_sets[[1]],
+         df_name = names(all_sets[1]),
+         y_lab = y_lab[1])
+
+# ----- actual run -----
+for (ii in seq_along(all_sets)){
+  hier_fit(df = all_sets[[ii]],
+           df_name = names(all_sets[ii]),
+           y_lab = y_lab[ii])
+}
+
