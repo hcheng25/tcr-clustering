@@ -14,8 +14,6 @@ set.seed(42)
 # load all normalized data sets
 source('functions/load_norms.R')
 
-check_plot <- all_sets$freq # for visually checking clusters
-
 # ----- using gap statistic to select number of clusters -----
 # counts for plotting the non normalized plots based on cluster assignments
 gap_stat_kmeans <- function(df, df_name, y_lab, B=50){
@@ -56,16 +54,18 @@ gap_stat_kmeans <- function(df, df_name, y_lab, B=50){
   
   p <- ggplot(freq_long, aes(x = Timepoint, y = Frequency, group = X, color = X)) +
     geom_line(alpha = 0.3) +
-    facet_wrap(~ cluster) +
+    facet_wrap(~ cluster,
+               ncol = 3,
+               scales = 'free_y') +
     theme(legend.position = 'none') + 
-    labs(title = paste0('Cluster plots for normalized frequency (', df_name, ')'),
+    labs(title = paste0('K-Means Cluster Plots (', df_name, ')'),
          x = 'Timepoint',
          y = y_lab
     )
   p
   
   plot_save_path <- paste0('results/kmeans/freq_plots/', df_name, '_cluster_plots.png')
-  ggsave(filename = plot_save_path, plot = p, units='px', width=3000, height=5000) # save cluster plots
+  ggsave(filename = plot_save_path, plot = p, units='in', width=4.5, height=5, dpi = 300) # save cluster plots
   
   # assign clusters to raw counts for plotting counts
   check_plot$cluster <- as.factor(km$cluster)
@@ -93,31 +93,22 @@ gap_stat_kmeans <- function(df, df_name, y_lab, B=50){
                ncol = 3,
                scales = 'free_y') +
     theme(legend.position = 'none') + 
-    labs(title = paste0('Cluster plots for Normalized Frequency of ', df_name),
+    labs(title = paste0('K-Means Frequency Plots (', df_name, ')'),
          x = 'Timepoint',
          y = 'Normalized Frequency'
     )
   p
   
   plot_save_path <- paste0('results/kmeans/check_plots/', df_name, '_check_plots.png')
-  ggsave(filename = plot_save_path, plot = p, units='px', width=3000, height=5000) # save cluster plots
+  ggsave(filename = plot_save_path, plot = p, units='in', width=4.5, height=5, dpi = 300) # save cluster plots
 }
 
-# set up y labels to sequence through
-y_lab <- c('Normalized Frequency',
-           'Normalized Frequency (z-score)',
-           'Normalized Pseudocount Frequency',
-           'Normalized Pseudocount Frequency (z-score)',
-           'Log Fold-change from Previous Timepoint')
-
-
-
 # ----- for testing -----
-ii <- 1
-gap_stat_kmeans(df = all_sets[[ii]],
-                df_name = names(all_sets[ii]),
-                y_lab = y_lab[ii],
-                B = 5) # adjusted to lower number for testing
+# ii <- 1
+# gap_stat_kmeans(df = all_sets[[ii]],
+#                 df_name = names(all_sets[ii]),
+#                 y_lab = y_lab[ii],
+#                 B = 5) # adjusted to lower number for testing function
 
 # ----- actual run -----
 for (ii in seq_along(all_sets)){

@@ -3,7 +3,7 @@ lapply(packages, library, character.only=TRUE)
 
 setwd(dirname(dirname(rstudioapi::getActiveDocumentContext()$path)))
 
-dat <- read.csv('data/Europe_covid_data_cell_meta_data_w_stat_TRB-Pt-5.csv')
+dat <- read.csv('data/Europe_covid_data_cell_meta_data_w_stat_TRB-Pt-1.csv')
 
 # ----- save TCR X column for later use -----
 saveRDS(dat$X, 'rds/X.RDS')
@@ -39,9 +39,9 @@ saveRDS(freq, 'rds/freq_neg7.RDS')
 freq_z <- freq |>
   row_to_z()
 
-saveRDS(freq, 'rds/freq_z.RDS')
+saveRDS(freq_z, 'rds/freq_z.RDS')
 
-# ----- +1 psuedocount method -----
+# ----- +1 pseudocount method -----
 # log10((count+1)/row total)
 plus1 <- counts |>
   mutate(across(starts_with('Count_'), \(x) x+10^-7), # add 10^-7 pseudocount
@@ -53,23 +53,17 @@ names(plus1) <- gsub(pattern = 'Count', replacement = 'Frequency', x = names(plu
 
 saveRDS(plus1, 'rds/plus1.RDS')
 
-# ----- +1 z scores
-plus1_z <- plus1 |>
-  row_to_z()
-
-saveRDS(plus1_z, 'rds/plus1_z.RDS')
-
 # ----- log fold-change -----
 # log(fold-change from previous timepoint)
 counts_current <- counts |> # columns for timepoints 2+
   select(starts_with('Count_')) |>
   select(-1) |>
-  mutate(across(starts_with('Count_'), \(x) x+10^-7))
+  mutate(across(starts_with('Count_'), \(x) x+1)) # pseudocount of 1 - prevent dividing by 0 at any point
 
 counts_prev <- counts |> # columns starting at 1+, lines up so that each column is the one previous
   select(starts_with('Count_')) |>
   select(-last_col()) |>
-  mutate(across(starts_with('Count_'), \(x) x+10^-7)) 
+  mutate(across(starts_with('Count_'), \(x) x+1)) # pseudocount of 1
 
 log_foldchange <- (counts_current/counts_prev) |> # divide for fold change from timept to timept
   mutate(across(starts_with('Count_'), \(x) log(x))) |>

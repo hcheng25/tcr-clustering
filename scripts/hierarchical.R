@@ -14,8 +14,6 @@ set.seed(42)
 # load all normalized data sets
 source('functions/load_norms.R')
 
-check_plot <- all_sets$freq # for visually checking clusters
-
 # ----- hierarchical clustering -----
 hier_fit <- function(df, df_name, y_lab){
   # use pearson distance
@@ -53,16 +51,18 @@ hier_fit <- function(df, df_name, y_lab){
   
   p <- ggplot(freq_long, aes(x = Timepoint, y = Frequency, group = X, color = X)) +
     geom_line(alpha = 0.3) +
-    facet_wrap(~ cluster) +
-    theme(legend.position = 'none') + 
-    labs(title = paste0('Cluster plots for normalized frequency (', df_name, ')'),
+    facet_wrap(~ cluster,
+               ncol = 3,
+               scales = 'free_y') + 
+    labs(title = paste0('Hierarchical Cluster Plots (', df_name, ')'),
          x = 'Timepoint',
          y = y_lab
-    )
+    ) +
+    theme(legend.position = 'none')
   p
   
   plot_save_path <- paste0('results/hierarchical/freq_plots/', df_name, '_cluster_plots.png')
-  ggsave(filename = plot_save_path, plot = p, units='px', width=3000, height=5000) # save cluster plots
+  ggsave(filename = plot_save_path, plot = p, units='in', width=4.5, height=5, dpi = 300) # save cluster plots
   
   # assign clusters for plotting check_plot
   check_plot$cluster <- as.factor(clusters)
@@ -88,25 +88,17 @@ hier_fit <- function(df, df_name, y_lab){
     geom_line(alpha = 0.3) +
     facet_wrap(~ cluster,
                ncol = 3,
-               scales = 'free_y') +
-    theme(legend.position = 'none') + 
-    labs(title = paste0('Cluster plots for log10(counts) of ', df_name),
+               scales = 'free_y') + 
+    labs(title = paste0('Hierarchical Frequency Plots (', df_name, ')'),
          x = 'Timepoint',
          y = 'Normalized Frequency'
-    )
+    ) +
+    theme(legend.position = 'none')
   p
   
   plot_save_path <- paste0('results/hierarchical/check_plots/', df_name, '_check_plots.png')
-  ggsave(filename = plot_save_path, plot = p, units='px', width=3000, height=5000) # save cluster plots
+  ggsave(filename = plot_save_path, plot = p, units='in', width=4.5, height=5, dpi = 300) # save cluster plots
 }
-
-# set up y labels to sequence through
-y_lab <- c('Normalized Frequency',
-           'Normalized Frequency (z-score)',
-           'Normalized Pseudocount Frequency',
-           'Normalized Pseudocount Frequency (z-score)',
-           'Log Fold-change from Previous Timepoint')
-
 
 # ----- test line -----
 hier_fit(df = all_sets[[1]],
