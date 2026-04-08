@@ -5,8 +5,6 @@ setwd(dirname(dirname(rstudioapi::getActiveDocumentContext()$path)))
 
 if(!dir.exists('results/agglo_kmeans')){
   dir.create('results/agglo_kmeans')
-  dir.create('results/agglo_kmeans/freq_plots')
-  dir.create('results/agglo_kmeans/check_plots')
 }
 
 set.seed(42)
@@ -33,6 +31,7 @@ col_kmeans <- function(column, B=50){
                      method = "firstSEmax")
   
   km <- kmeans(column, centers = optimal_k, nstart = 25, iter.max=50)
+  
   return(km$cluster)
 }
 
@@ -45,11 +44,12 @@ flattenCorrMatrix <- function(rmat, pmat){
                           r = rmat[ut],
                           p = pmat[ut]
                           )
+  
   return(flattened)
 }
 
-# ----- for testing -----
-agglo_kmeans <- function(df, df_name, y_lab, B=50){
+# ----- agglomerative kmeans clustering -----
+agglo_kmeans <- function(df, B=50, r_thresh=0.8, p_thresh=0.05){
   df <- df |>
     mutate(across(starts_with('Frequency_'), \(x) col_kmeans(x, B=B), .names='{.col}_cluster')) |>
     # combine each tcr's column kmeans clusters into a unique "fingerprint" cluster label
@@ -67,15 +67,15 @@ agglo_kmeans <- function(df, df_name, y_lab, B=50){
   df_matrix <- rcorr(t(df_meds)) # want to compute correlation across clusters, which are originally in rows
   
   flattened <- flattenCorrMatrix(df_matrix$r, df_matrix$P) |>
-    filter(r>0.8, p<0.05) # select those that are highly correlated with signficant p
-  
+    filter(r>r_thresh, p<p_thresh) # select those that are highly correlated with signficant p
+
   # use correlated clusters to make list of clusters that should be combined
   combos <- list() # initiate list
   for (ii in seq(nrow(flattened))){
     sorted <- unique(unlist(combos))
     label1 <- flattened$row[ii]
     label2 <- flattened$column[ii]
-    
+
     if (label1 %in% sorted & label2 %in% sorted){
       # if both are already sorted, combine the groups
       for (jj in seq_along(combos)){
@@ -88,13 +88,12 @@ agglo_kmeans <- function(df, df_name, y_lab, B=50){
           label2_group <- combos[[jj]]
         }
       }
-      
       # make new combined group and exclude original separate groups
       if(label1_index != label2_index){
         combos[[length(combos)+1]] <- c(label1_group, label2_group)
         combos <- combos[c(-label1_index, -label2_index)]
       }
-      
+
     }else if (label1 %in% sorted){
       # if label1 already in the list find the group that label1 is in and add label2 to it
       for (jj in seq_along(combos)){
@@ -103,7 +102,7 @@ agglo_kmeans <- function(df, df_name, y_lab, B=50){
           break
         }
       }
-      
+
     }else if(label2 %in% sorted){
       # if label2 already in the list find the group that label2 is in and add label1 to it
       for (jj in seq_along(combos)){
@@ -112,13 +111,13 @@ agglo_kmeans <- function(df, df_name, y_lab, B=50){
           break
         }
       }
-      
+
     }else{
       # if neither is present, add both to new element of list
       combos[[length(combos)+1]] <- c(label1, label2)
     }
   }
-  
+
   # include the labels that were not combined with other labels
   labels <- unique(df$agg_cluster)
   for (ii in seq_along(labels)){
@@ -126,9 +125,9 @@ agglo_kmeans <- function(df, df_name, y_lab, B=50){
       combos[[length(combos)+1]] <- labels[ii]
     }
   }
-  
+
   names(combos) <- seq_along(combos)
-  
+
   # vector of cluster labels, renamed
   cluster_labels <- unique(unlist(combos))
   new_labels <- c()
@@ -140,61 +139,64 @@ agglo_kmeans <- function(df, df_name, y_lab, B=50){
       }
     }
   }
-  
+
   final_cluster <- df$agg_cluster
   for (ii in seq_along(final_cluster)){
     if(final_cluster[ii] %in% cluster_labels){
       final_cluster[ii] <- new_labels[cluster_labels==final_cluster[ii]]
     }
   }
-  final_cluster <- as.integer(final_cluster)
+
+  # save clusters in integer form
+  df$cluster <- as.integer(final_cluster)
   
-  df$cluster <- final_cluster
-  
-  df$cluster <- as.factor(df$cluster)
-  for (jj in seq_along(levels(df$cluster))){
-    levels(df$cluster)[jj] <- paste0('Cluster_',
-                                     levels(df$cluster)[jj],' (n=',
-                                     table(df$cluster)[[jj]],
+  # final cluster is a factor
+  df$final_cluster <- as.factor(final_cluster)
+
+  df$final_cluster <- as.factor(df$final_cluster)
+  for (jj in seq_along(levels(df$final_cluster))){
+    levels(df$final_cluster)[jj] <- paste0('Cluster_',
+                                     levels(df$final_cluster)[jj],' (n=',
+                                     table(df$final_cluster)[[jj]],
                                      ')')
   }
   
-  df$X <- as.factor(X)
+  return(df)
+}
+
+# put "clusters" of n=1 into an "other" category
+group_other <- function(df){
+  final_cluster <- df$cluster
+
+  cluster_criteria <- which(table(final_cluster)==1)
+  cluster_counts_other <- names(cluster_criteria)
+  other_total <- sum(table(final_cluster)[cluster_criteria])
   
-  # plot clusters to examine z-score trends in each cluster
-  freq_long <- df |>
-    pivot_longer(cols = starts_with('Frequency_'),
-                 names_to = 'Timepoint',
-                 values_to = 'Frequency') |>
-    mutate(
-      Timepoint = factor(gsub(pattern='Frequency_', replacement='', Timepoint), levels=1:9)
-    )
+  # label "other" as cluster0 temporarily
+  for (ii in seq_along(final_cluster)){
+    if(final_cluster[ii] %in% cluster_counts_other){ final_cluster[ii] <- 0 }
+  }
   
-  p <- ggplot(freq_long, aes(x = Timepoint, y = Frequency, group = X, color = X)) +
-    geom_line(alpha = 0.3) +
-    facet_wrap(~ cluster,
-               ncol = 3,
-               scales = 'free_y') +
-    theme(legend.position = 'none') + 
-    labs(title = paste0('K-Means Cluster Plots (', df_name, ')'),
-         x = 'Timepoint',
-         y = y_lab
-    )
-  p
+  final_cluster <- as.factor(final_cluster)
+  for (jj in seq_along(levels(final_cluster))){
+    levels(final_cluster)[jj] <- paste0('Cluster_',
+                                        levels(final_cluster)[jj],' (n=',
+                                        table(final_cluster)[[jj]],
+                                        ')')
+  }
   
-  plot_save_path <- paste0('results/agglo_kmeans/freq_plots/', df_name, '_cluster_plots.png')
-  ggsave(filename = plot_save_path, plot = p, units='in', width=4.5, height=5, dpi = 300) # save cluster plots
+  # rename cluster 0 to "other"
+  levels(final_cluster) <- gsub(pattern='^Cluster_0', replacement='Other', x=levels(final_cluster))
   
+  df$final_cluster <- final_cluster
+  
+  return(df)
+}
+
+# plot frequency to check clustering
+cluster_plot <- function(agglo_df, check_df, X, y_lab, df_name, ncol = 8, linewidth=1.5){
   # assign clusters to raw counts for plotting counts
-  check_plot$cluster <- final_cluster
-  check_plot$cluster <- as.factor(check_plot$cluster)
-  for (jj in seq_along(levels(check_plot$cluster))){
-    levels(check_plot$cluster)[jj] <- paste0('Cluster_',
-                                     levels(check_plot$cluster)[jj],' (n=',
-                                     table(check_plot$cluster)[[jj]],
-                                     ')')
-  }
-  
+  check_plot$cluster <- agglo_df$final_cluster
   check_plot$X <- as.factor(X)
   
   # plot clusters to examine raw count trends in each cluster
@@ -207,31 +209,70 @@ agglo_kmeans <- function(df, df_name, y_lab, B=50){
     )
   
   p <- ggplot(freq_long, aes(x = Timepoint, y = Frequency, group = X, color = X)) +
-    geom_line(alpha = 0.3) +
+    geom_line(alpha = 0.3, linewidth=linewidth) +
     facet_wrap(~ cluster,
-               ncol = 3,
+               ncol = ncol,
                scales = 'free_y') +
     theme(legend.position = 'none') + 
     labs(title = paste0('K-Means Frequency Plots (', df_name, ')'),
          x = 'Timepoint',
          y = 'Normalized Frequency'
     )
-  p
-  
-  plot_save_path <- paste0('results/agglo_kmeans/check_plots/', df_name, '_check_plots.png')
-  ggsave(filename = plot_save_path, plot = p, units='in', width=4.5, height=5, dpi = 300) # save cluster plots
+
+  return(p)
 }
 
-ii <- 1
-agglo_kmeans(df = all_sets[[ii]],
-                df_name = names(all_sets[ii]),
-                y_lab = y_lab[ii],
-                B = 5) # adjusted to lower number for testing function
+# ----- test run -----
+# ii <- 1
+# test_df <- agglo_kmeans(df = all_sets[[ii]],
+#                         B = 5, # adjusted to lower number for testing function
+#                         r_thresh=0.9,
+#                         p_thresh=0.05)
+# test_df_w_other <- group_other(df = test_df)
+# 
+# test_plot <- cluster_plot(agglo_df = test_df,
+#                           check_df=check_plot,
+#                           X = X,
+#                           y_lab = y_lab[ii],
+#                           df_name = names(all_sets[ii]))
+# test_plot_w_other <- cluster_plot(agglo_df = test_df_w_other,
+#                                   check_df=check_plot,
+#                                   X = X,
+#                                   y_lab = y_lab[ii],
+#                                   df_name = names(all_sets[ii]))
+# test_plot
+# test_plot_w_other
 
 # ----- actual run -----
-# for (ii in seq_along(all_sets)){
-#   gap_stat_kmeans(df = all_sets[[ii]],
-#                   df_name = names(all_sets[ii]),
-#                   y_lab = y_lab[ii],
-#                   B = 50) 
-# }
+for (ii in seq_along(all_sets)){
+  if (ii == 3){ next } # method does not work with log fold change
+
+  df <- agglo_kmeans(df = all_sets[[ii]],
+                     B = 100,
+                     r_thresh=0.9,
+                     p_thresh=0.05)
+
+  df_w_other <- group_other(df = df)
+
+  plot <- cluster_plot(agglo_df = df,
+                       check_df=check_plot,
+                       X = X,
+                       y_lab = y_lab[ii],
+                       df_name = names(all_sets[ii]),
+                       ncol = 8,
+                       linewidth=1.5)
+
+  other_plot <- cluster_plot(agglo_df = df_w_other,
+                             check_df=check_plot,
+                             X = X,
+                             y_lab = y_lab[ii],
+                             df_name = names(all_sets[ii]),
+                             ncol = 8,
+                             linewidth=1)
+
+  cluster_path <- paste0('results/agglo_kmeans/', names(all_sets[ii]), '_cluster_plots.png')
+  other_path <- paste0('results/agglo_kmeans/', names(all_sets[ii]), '_cluster_plots_w_other.png')
+
+  ggsave(filename = cluster_path, plot = plot, units='in', width=30, height=15, dpi = 300)
+  ggsave(filename = other_path, plot = other_plot, units='in', width=20, height=10, dpi = 300)
+}
