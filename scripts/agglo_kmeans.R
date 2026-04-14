@@ -1,4 +1,4 @@
-packages <- c('cluster', 'ggplot2', 'rlang', 'Hmisc', 'tidyverse')
+packages <- c('cluster', 'ggplot2', 'rlang', 'Hmisc', 'tidyverse', 'clusterSim', 'clValid', 'data.table')
 lapply(packages, library, character.only=TRUE)
 
 setwd(dirname(dirname(rstudioapi::getActiveDocumentContext()$path)))
@@ -242,6 +242,31 @@ cluster_plot <- function(agglo_df, check_df, X, y_lab, df_name, ncol = 8, linewi
 #                                   df_name = names(all_sets[ii]))
 # test_plot
 # test_plot_w_other
+# 
+# # silhouette - higher is better, >0.5 indicates pretty good clustering
+# # correlation distance matrix calculation
+# feature_matrix <- df |>
+#   select(starts_with('Frequency_')) |>
+#   as.matrix()
+# dist_mat <- as.dist(1 - cor(t(feature_matrix)))
+# 
+# sil <- silhouette(as.integer(df$final_cluster), dist_mat)
+# mean(sil[,3])
+# 
+# # DBI - lower is better
+# dbi <- index.DB(feature_matrix, as.integer(df$final_cluster), d = "correlation")
+# 
+# # Dunn index - higher is better
+# dunn <- dunn(distance = dist_mat, clusters = as.integer(df$final_cluster))
+# 
+# metrics <- data.frame(Metric = c('Silhouette', 'DBI', 'Dunn'),
+#                       Value = c(mean(sil[,3]), dbi$DB, dunn))
+# fwrite(metrics, file = paste0('results/agglo_kmeans/', names(all_sets[ii]), '_metrics.txt'))
+# 
+# # results from these clustering metrics
+# # silhouette and dbi indicate pretty good clustering, but dunn index indicates poor clustering, likely bc
+# # dunn index is highly sensitive to n=1 groups and that pushes its measure of clustering down due to high numbers
+# # of n=1 groups
 
 # ----- actual run -----
 for (ii in seq_along(all_sets)){
@@ -275,4 +300,26 @@ for (ii in seq_along(all_sets)){
 
   ggsave(filename = cluster_path, plot = plot, units='in', width=30, height=15, dpi = 300)
   ggsave(filename = other_path, plot = other_plot, units='in', width=20, height=10, dpi = 300)
+  
+  # silhouette - higher is better, >0.5 indicates pretty good clustering
+  # correlation distance matrix calculation
+  feature_matrix <- df |>
+    select(starts_with('Frequency_')) |>
+    as.matrix()
+  dist_mat <- as.dist(1 - cor(t(feature_matrix)))
+  
+  sil <- silhouette(as.integer(df$final_cluster), dist_mat)
+  mean(sil[,3])
+  
+  # DBI - lower is better
+  dbi <- index.DB(feature_matrix, as.integer(df$final_cluster), d = "correlation")
+  
+  # Dunn index - higher is better
+  dunn <- dunn(distance = dist_mat, clusters = as.integer(df$final_cluster))
+  
+  metrics <- data.frame(Metric = c('Silhouette', 'DBI', 'Dunn'),
+                        Value = c(mean(sil[,3]), dbi$DB, dunn))
+  fwrite(metrics, file = paste0('results/agglo_kmeans/', names(all_sets[ii]), '_metrics.txt'))
 }
+
+
