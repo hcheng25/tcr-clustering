@@ -3,6 +3,7 @@ lapply(packages, library, character.only=TRUE)
 
 setwd(dirname(dirname(rstudioapi::getActiveDocumentContext()$path)))
 
+# this dataset will be used for analysis
 dat <- read.csv('data/Europe_covid_data_cell_meta_data_w_stat_TRB-Pt-1.csv')
 
 # ----- save TCR X column for later use -----
