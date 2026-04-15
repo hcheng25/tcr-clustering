@@ -1,4 +1,4 @@
-packages <- c('cluster', 'ggplot2', 'rlang', 'Hmisc', 'tidyverse', 'clusterSim', 'clValid', 'data.table')
+packages <- c('cluster', 'ggplot2', 'rlang', 'Hmisc', 'clusterSim', 'clValid', 'data.table', 'tidyverse')
 lapply(packages, library, character.only=TRUE)
 
 setwd(dirname(dirname(rstudioapi::getActiveDocumentContext()$path)))
@@ -53,11 +53,11 @@ agglo_kmeans <- function(df, B=50, r_thresh=0.8, p_thresh=0.05){
   df <- df |>
     mutate(across(starts_with('Frequency_'), \(x) col_kmeans(x, B=B), .names='{.col}_cluster')) |>
     # combine each tcr's column kmeans clusters into a unique "fingerprint" cluster label
-    mutate(agg_cluster = apply(X = select(cur_data(), ends_with('_cluster')),
+    mutate(agg_cluster = apply(X = dplyr::select(cur_data(), ends_with('_cluster')),
                                MARGIN = 1,
                                FUN = paste0,
                                collapse = '_')) |>
-    select(-(starts_with('Frequency_') & ends_with('_cluster')))
+    dplyr::select(-matches('^Frequency_.*_cluster$'))
   
   df_meds <- df |>
     group_by(agg_cluster) |>
@@ -194,13 +194,13 @@ group_other <- function(df){
 }
 
 # plot frequency to check clustering
-cluster_plot <- function(agglo_df, check_df, X, y_lab, df_name, ncol = 8, linewidth=1.5){
+cluster_plot <- function(df, check_df, X, y_lab, df_name, ncol = 8, linewidth=1.5){
   # assign clusters to raw counts for plotting counts
-  check_plot$cluster <- agglo_df$final_cluster
-  check_plot$X <- as.factor(X)
+  check_df$cluster <- df$final_cluster
+  check_df$X <- as.factor(X)
   
   # plot clusters to examine raw count trends in each cluster
-  freq_long <- check_plot |>
+  freq_long <- check_df |>
     pivot_longer(cols = starts_with('Frequency_'),
                  names_to = 'Timepoint',
                  values_to = 'Frequency') |>
@@ -214,7 +214,7 @@ cluster_plot <- function(agglo_df, check_df, X, y_lab, df_name, ncol = 8, linewi
                ncol = ncol,
                scales = 'free_y') +
     theme(legend.position = 'none') + 
-    labs(title = paste0('K-Means Frequency Plots (', df_name, ')'),
+    labs(title = paste0('Agglomerative K-Means Frequency Plots (', df_name, ')'),
          x = 'Timepoint',
          y = 'Normalized Frequency'
     )
@@ -279,7 +279,7 @@ for (ii in seq_along(all_sets)){
 
   df_w_other <- group_other(df = df)
 
-  plot <- cluster_plot(agglo_df = df,
+  plot <- cluster_plot(df = df,
                        check_df=check_plot,
                        X = X,
                        y_lab = y_lab[ii],
@@ -287,7 +287,7 @@ for (ii in seq_along(all_sets)){
                        ncol = 8,
                        linewidth=1.5)
 
-  other_plot <- cluster_plot(agglo_df = df_w_other,
+  other_plot <- cluster_plot(df = df_w_other,
                              check_df=check_plot,
                              X = X,
                              y_lab = y_lab[ii],

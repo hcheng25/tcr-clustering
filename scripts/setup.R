@@ -1,5 +1,5 @@
 # install necessary packages
-packages <- c('tidyverse', 'cluster', 'ggplot2', 'rlang', 'dynamicTreeCut', 'Hmisc')
+packages <- c('tidyverse', 'cluster', 'ggplot2', 'rlang', 'dynamicTreeCut', 'Hmisc', 'clusterSim', 'clValid', 'data.table')
 lapply(packages, install.packages)
 
 setwd(dirname(dirname(rstudioapi::getActiveDocumentContext()$path)))
