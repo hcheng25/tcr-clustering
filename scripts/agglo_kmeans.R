@@ -222,51 +222,25 @@ cluster_plot <- function(df, check_df, X, y_lab, df_name, ncol = 8, linewidth=1.
   return(p)
 }
 
-# ----- test run -----
-# ii <- 1
-# test_df <- agglo_kmeans(df = all_sets[[ii]],
-#                         B = 5, # adjusted to lower number for testing function
-#                         r_thresh=0.9,
-#                         p_thresh=0.05)
-# test_df_w_other <- group_other(df = test_df)
-# 
-# test_plot <- cluster_plot(agglo_df = test_df,
-#                           check_df=check_plot,
-#                           X = X,
-#                           y_lab = y_lab[ii],
-#                           df_name = names(all_sets[ii]))
-# test_plot_w_other <- cluster_plot(agglo_df = test_df_w_other,
-#                                   check_df=check_plot,
-#                                   X = X,
-#                                   y_lab = y_lab[ii],
-#                                   df_name = names(all_sets[ii]))
-# test_plot
-# test_plot_w_other
-# 
-# # silhouette - higher is better, >0.5 indicates pretty good clustering
-# # correlation distance matrix calculation
-# feature_matrix <- df |>
-#   select(starts_with('Frequency_')) |>
-#   as.matrix()
-# dist_mat <- as.dist(1 - cor(t(feature_matrix)))
-# 
-# sil <- silhouette(as.integer(df$final_cluster), dist_mat)
-# mean(sil[,3])
-# 
-# # DBI - lower is better
-# dbi <- index.DB(feature_matrix, as.integer(df$final_cluster), d = "correlation")
-# 
-# # Dunn index - higher is better
-# dunn <- dunn(distance = dist_mat, clusters = as.integer(df$final_cluster))
-# 
-# metrics <- data.frame(Metric = c('Silhouette', 'DBI', 'Dunn'),
-#                       Value = c(mean(sil[,3]), dbi$DB, dunn))
-# fwrite(metrics, file = paste0('results/agglo_kmeans/', names(all_sets[ii]), '_metrics.txt'))
-# 
-# # results from these clustering metrics
-# # silhouette and dbi indicate pretty good clustering, but dunn index indicates poor clustering, likely bc
-# # dunn index is highly sensitive to n=1 groups and that pushes its measure of clustering down due to high numbers
-# # of n=1 groups
+perf_metrics <- function(matrix, final_cluster){
+  cluster_int <- as.integer(final_cluster)
+  
+  # silhouette - higher is better, >0.5 indicates pretty good clustering
+  # correlation distance matrix calculation
+  dist_mat <- as.dist(1 - cor(t(matrix)))
+  
+  sil <- silhouette(cluster_int, dist_mat)
+  sil <- mean(sil[,3])
+  
+  # DBI - lower is better
+  dbi <- index.DB(matrix, cluster_int, d = dist_mat)
+  dbi <- dbi$DB
+  
+  # Dunn index - higher is better
+  dunn <- dunn(distance = dist_mat, clusters = cluster_int)
+  
+  return(c(sil, dbi, dunn))
+}
 
 # ----- actual run -----
 for (ii in seq_along(all_sets)){
@@ -301,25 +275,36 @@ for (ii in seq_along(all_sets)){
   ggsave(filename = cluster_path, plot = plot, units='in', width=30, height=15, dpi = 300)
   ggsave(filename = other_path, plot = other_plot, units='in', width=20, height=10, dpi = 300)
   
-  # silhouette - higher is better, >0.5 indicates pretty good clustering
-  # correlation distance matrix calculation
-  feature_matrix <- df |>
-    select(starts_with('Frequency_')) |>
+ cluster_matrix <- df |>
+    dplyr::select(starts_with('Frequency_')) |>
     as.matrix()
-  dist_mat <- as.dist(1 - cor(t(feature_matrix)))
   
-  sil <- silhouette(as.integer(df$final_cluster), dist_mat)
-  mean(sil[,3])
+  check_matrix <- check_plot |>
+    dplyr::select(starts_with('Frequency_')) |>
+    as.matrix()
+
+  metrics <- data.frame(Metric = c('Silhouette', 'DBI', 'Dunn'),
+                        Norm_Values = perf_metrics(matrix=cluster_matrix, final_cluster=df$final_cluster),
+                        Original_Values = perf_metrics(matrix=check_matrix, final_cluster=df$final_cluster))
+  fwrite(metrics, file = paste0('results/agglo_kmeans/', names(all_sets[ii]), '_metrics.txt'))
   
-  # DBI - lower is better
-  dbi <- index.DB(feature_matrix, as.integer(df$final_cluster), d = "correlation")
+  # calculate metrics without n=1 groups
+  no_n1_index <- !grepl('^Other', df_w_other$final_cluster)
   
-  # Dunn index - higher is better
-  dunn <- dunn(distance = dist_mat, clusters = as.integer(df$final_cluster))
+  final_cluster_no_n1 <- df_w_other$final_cluster[no_n1_index]
+  
+  cluster_matrix <- df_w_other[no_n1_index,] |>
+    dplyr::select(starts_with('Frequency_')) |>
+    as.matrix()
+  
+  check_matrix <- check_plot[no_n1_index,] |>
+    dplyr::select(starts_with('Frequency_')) |>
+    as.matrix()
   
   metrics <- data.frame(Metric = c('Silhouette', 'DBI', 'Dunn'),
-                        Value = c(mean(sil[,3]), dbi$DB, dunn))
-  fwrite(metrics, file = paste0('results/agglo_kmeans/', names(all_sets[ii]), '_metrics.txt'))
+                        Norm_Values = perf_metrics(matrix=cluster_matrix, final_cluster=final_cluster_no_n1),
+                        Original_Values = perf_metrics(matrix=check_matrix, final_cluster=final_cluster_no_n1))
+  fwrite(metrics, file = paste0('results/agglo_kmeans/', names(all_sets[ii]), '_metrics_no_n1.txt'))
 }
 
 
