@@ -61,7 +61,14 @@ For each composite cluster, find the median at each time point, then cluster com
 ## Clustering Metrics
 
 ### Silhouette Score
+- `cluster::silhouette()` function
+- Range of [-1, 1], higher is better
+- Likely best metric at a glance for assessing performance due to more restricted range of values
 
 ### Davies-Bouldin Index (DBI)
+- `clusterSim::index.DB()` function
+- Range of [0, inf), lower is better
 
 ### Dunn Index
+- `clValid::dunn()` function
+- Range of [0, inf)]
